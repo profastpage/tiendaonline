@@ -1,19 +1,35 @@
 name = "tiendaonline"
+main = "server.js"
 compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
 
-# Directorio de build para Pages
-pages_build_output_dir = ".vercel/output/static"
+# Directorio de assets estáticos
+assets = { directory = ".next/static", binding = "ASSETS" }
 
 # Variables de entorno
 [vars]
-NEXT_PUBLIC_API_URL = "https://tu-api-backend.com"
-NEXT_PUBLIC_APP_URL = "https://tiendaonline.pages.dev"
-
-# Configuración para producción
-[env.production]
 NEXT_PUBLIC_API_URL = "https://api.tudominio.com"
-NEXT_PUBLIC_APP_URL = "https://tiendaonline.pages.dev"
+NEXT_PUBLIC_APP_URL = "https://tiendaonline.workers.dev"
 
-# Configuración para preview branches
-[env.preview]
-NEXT_PUBLIC_API_URL = "https://api.tudominio.com"
+# Configuración para multi-tenant con wildcard
+routes = [
+  { pattern = "*.tudominio.com/*", zone_name = "tudominio.com" }
+]
+
+# Durable Objects para estado por tenant (opcional, para features avanzadas)
+# [durable_objects]
+# bindings = [
+#   { name = "TENANT_STORE", class_name = "TenantStore" }
+# ]
+
+# KV para caché y datos simples
+[[kv_namespaces]]
+binding = "TIENDA_KV"
+id = "TU_KV_ID_AQUI"
+preview_id = "TU_KV_PREVIEW_ID"
+
+# D1 para base de datos (opcional, si usas D1 en lugar de PostgreSQL)
+[[d1_databases]]
+binding = "DB"
+database_name = "tiendas-db"
+database_id = "TU_D1_ID_AQUI"
