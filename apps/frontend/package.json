@@ -3,10 +3,13 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "dev": "wrangler dev",
     "build": "next build",
-    "deploy": "wrangler deploy",
+    "deploy": "npx wrangler deploy",
     "preview": "wrangler dev --local"
   },
   "dependencies": {

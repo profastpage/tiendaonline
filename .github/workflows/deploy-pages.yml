@@ -25,9 +25,11 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
+          check-latest: true
 
       - name: Install dependencies
         run: npm install
+        working-directory: apps/frontend
 
       - name: Build frontend
         run: cd apps/frontend && npm run build

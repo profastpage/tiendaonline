@@ -3,6 +3,9 @@ main = "server.js"
 compatibility_date = "2024-01-01"
 compatibility_flags = ["nodejs_compat"]
 
+# Forzar Node.js v20 en Cloudflare
+node_compat = true
+
 # Directorio de assets estáticos
 assets = { directory = ".next/static", binding = "ASSETS" }
 
