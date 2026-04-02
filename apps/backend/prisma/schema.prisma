@@ -1,0 +1,269 @@
+// ============================================
+// ESQUEMA PRISMA - PLATAFORMA MULTI-TENANT
+// ============================================
+// Enfocado en ventas por WhatsApp para negocios
+// de productos físicos (ropa, accesorios, etc.)
+// ============================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// MODELOS MULTI-TENANT
+// ============================================
+
+/// Negocio/Tienda (Tenant principal)
+model Tenant {
+  id              String   @id @default(uuid())
+  nombre          String
+  slug            String   @unique // Para subdominio: slug.tudominio.com
+  descripcion     String?
+  logoUrl         String?
+  bannerUrl       String?
+  whatsappNumero  String   // Número para recibir pedidos
+  email           String?
+  direccion       String?
+  ciudad          String?
+  pais            String?
+  moneda          String   @default("PEN") // PEN, USD, EUR, etc.
+  activo          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relaciones
+  usuarios        Usuario[]
+  productos       Producto[]
+  pedidos         Pedido[]
+  categorias      Categoria[]
+
+  @@index([slug])
+  @@map("tenants")
+}
+
+/// Usuario administrador del tenant
+model Usuario {
+  id            String   @id @default(uuid())
+  tenantId      String
+  email         String
+  passwordHash  String
+  nombre        String
+  rol           Rol      @default(VENDEDOR)
+  activo        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relaciones
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  pedidos       Pedido[]
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@map("usuarios")
+}
+
+/// Roles de usuario
+enum Rol {
+  ADMIN
+  GERENTE
+  VENDEDOR
+}
+
+/// Categoría de productos
+model Categoria {
+  id          String   @id @default(uuid())
+  tenantId    String
+  nombre      String
+  descripcion String?
+  slug        String
+  imagenUrl   String?
+  orden       Int      @default(0)
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relaciones
+  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  productos   Producto[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@map("categorias")
+}
+
+/// Producto principal
+model Producto {
+  id          String   @id @default(uuid())
+  tenantId    String
+  categoriaId String?
+  nombre      String
+  slug        String
+  descripcion String?
+  precio      Decimal  @db.Decimal(10, 2)
+  precioOferta Decimal? @db.Decimal(10, 2)
+  imagenPrincipal String?
+  activo      Boolean  @default(true)
+  destacado   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relaciones
+  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  categoria   Categoria? @relation(fields: [categoriaId], references: [id], onDelete: SetNull)
+  variantes   Variante[]
+  items       PedidoItem[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@index([categoriaId])
+  @@map("productos")
+}
+
+/// Variante de producto (Talla, Color, etc.)
+model Variante {
+  id          String   @id @default(uuid())
+  productoId  String
+  talla       String?  // S, M, L, XL, etc.
+  color       String?  // Nombre del color
+  colorHex    String?  // Código hex del color
+  sku         String?  // Stock Keeping Unit
+  precio      Decimal? @db.Decimal(10, 2) // Precio específico si difiere del producto
+  stock       Int      @default(0)
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relaciones
+  producto    Producto   @relation(fields: [productoId], references: [id], onDelete: Cascade)
+  inventarios Inventario[]
+  items       PedidoItem[]
+
+  @@unique([productoId, talla, color])
+  @@index([productoId])
+  @@map("variantes")
+}
+
+/// Inventario por variante (histórico y control)
+model Inventario {
+  id          String   @id @default(uuid())
+  varianteId  String
+  tipoMovimiento TipoMovimiento
+  cantidad    Int      // Positivo (entrada) o negativo (salida)
+  stockAnterior Int
+  stockNuevo  Int
+  motivo      String?
+  usuarioId   String?
+  createdAt   DateTime @default(now())
+
+  // Relaciones
+  variante    Variante  @relation(fields: [varianteId], references: [id], onDelete: Cascade)
+
+  @@index([varianteId])
+  @@index([createdAt])
+  @@map("inventarios")
+}
+
+/// Tipos de movimiento de inventario
+enum TipoMovimiento {
+  COMPRA
+  VENTA
+  DEVOLUCION
+  AJUSTE
+  MERMA
+}
+
+/// Pedido generado por cliente
+model Pedido {
+  id              String   @id @default(uuid())
+  tenantId        String
+  usuarioId       String?  // Usuario admin que gestionó el pedido (opcional)
+  numeroPedido    String   // Número correlativo único por tenant
+  estado          EstadoPedido @default(PENDIENTE)
+  
+  // Datos del cliente
+  clienteNombre   String
+  clienteTelefono String
+  clienteEmail    String?
+  
+  // Totales
+  subtotal        Decimal  @db.Decimal(10, 2)
+  descuento       Decimal  @default(0) @db.Decimal(10, 2)
+  total           Decimal  @db.Decimal(10, 2)
+  
+  // WhatsApp
+  whatsappEnviado Boolean  @default(false)
+  whatsappMensaje String?
+  
+  // Notas
+  notas           String?
+  notasInternas   String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relaciones
+  tenant          Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  usuario         Usuario?   @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+  items           PedidoItem[]
+
+  @@unique([tenantId, numeroPedido])
+  @@index([tenantId])
+  @@index([estado])
+  @@index([createdAt])
+  @@map("pedidos")
+}
+
+/// Estados del pedido
+enum EstadoPedido {
+  PENDIENTE
+  CONFIRMADO
+  EN_PREPARACION
+  LISTO
+  ENVIADO
+  ENTREGADO
+  CANCELADO
+}
+
+/// Items del pedido
+model PedidoItem {
+  id          String   @id @default(uuid())
+  pedidoId    String
+  productoId  String
+  varianteId  String?
+  cantidad    Int
+  precioUnitario Decimal @db.Decimal(10, 2)
+  subtotal    Decimal  @db.Decimal(10, 2)
+  createdAt   DateTime @default(now())
+
+  // Relaciones
+  pedido      Pedido    @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  producto    Producto  @relation(fields: [productoId], references: [id], onDelete: Cascade)
+  variante    Variante? @relation(fields: [varianteId], references: [id], onDelete: SetNull)
+
+  @@index([pedidoId])
+  @@map("pedido_items")
+}
+
+// ============================================
+// PREPARADO PARA FUTURAS INTEGRACIONES IA
+// ============================================
+
+/// Auditoría de interacciones con IA (futuro)
+model IaAudit {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tipo        String   // "voz_a_texto", "interpretacion_pedido", etc.
+  input       String   // Entrada raw (audio transcrito, texto, etc.)
+  output      String   // Resultado procesado
+  metadata    Json?    // Datos adicionales
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([createdAt])
+  @@map("ia_audits")
+}
