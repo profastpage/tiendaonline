@@ -1,38 +1,10 @@
 name = "tiendaonline"
-main = "server.js"
 compatibility_date = "2024-01-01"
-compatibility_flags = ["nodejs_compat"]
 
-# Forzar Node.js v20 en Cloudflare
-node_compat = true
-
-# Directorio de assets estáticos
-assets = { directory = ".next/static", binding = "ASSETS" }
+# Assets estáticos para Next.js export
+assets = { directory = ".next", binding = "ASSETS" }
 
 # Variables de entorno
 [vars]
 NEXT_PUBLIC_API_URL = "https://api.tudominio.com"
 NEXT_PUBLIC_APP_URL = "https://tiendaonline.workers.dev"
-
-# Configuración para multi-tenant con wildcard
-routes = [
-  { pattern = "*.tudominio.com/*", zone_name = "tudominio.com" }
-]
-
-# Durable Objects para estado por tenant (opcional, para features avanzadas)
-# [durable_objects]
-# bindings = [
-#   { name = "TENANT_STORE", class_name = "TenantStore" }
-# ]
-
-# KV para caché y datos simples
-[[kv_namespaces]]
-binding = "TIENDA_KV"
-id = "TU_KV_ID_AQUI"
-preview_id = "TU_KV_PREVIEW_ID"
-
-# D1 para base de datos (opcional, si usas D1 en lugar de PostgreSQL)
-[[d1_databases]]
-binding = "DB"
-database_name = "tiendas-db"
-database_id = "TU_D1_ID_AQUI"

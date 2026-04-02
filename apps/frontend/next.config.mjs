@@ -1,30 +1,25 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Soporte para subdominios multi-tenant
-  async rewrites() {
-    return [
-      // API proxy al backend
-      {
-        source: '/api/:path*',
-        destination: 'http://localhost:3001/:path*',
-      },
-    ];
-  },
+  // Required for Cloudflare Workers
+  output: 'export',
   
-  // Variables de entorno
-  env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001',
-    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:4000',
-  },
-  
-  // Imágenes externas permitidas
+  // Disable image optimization (use Cloudflare Images instead)
   images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: '**',
-      },
-    ],
+    unoptimized: true,
+  },
+  
+  // Disable server-side rendering for static export
+  trailingSlash: true,
+  
+  // Remove webpack optimizations that don't work with Workers
+  webpack: (config) => {
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      fs: false,
+      net: false,
+      tls: false,
+    };
+    return config;
   },
 };
 
